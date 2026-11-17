@@ -1,18 +1,33 @@
 # FFmpeg Forge
 
-**Convert anything into everything.** FFmpeg Forge is a portable Windows application that puts
+**Convert anything into everything.** FFmpeg Forge is a portable application for Windows and Linux that puts
 the full power of FFmpeg behind one window: every format and codec of your FFmpeg build, GPU
 upscalers, AI upscaling and denoising, SDR to HDR10 / Dolby Vision, immersive audio up to 22.2,
-and a DVD / Blu-ray ripper. Version 2.3.0.
+a DVD / Blu-ray ripper and a cinema film-strip live preview. Version 2.4.0.
 
-![FFmpeg Forge 2.3.0: adding files, settings, batch conversion with live preview, DVD ripping](docs/demo.gif)
+![FFmpeg Forge: adding files, settings, batch conversion, DVD ripping](docs/demo.gif)
+
+## New in 2.4.0: cinema film-strip live preview
+
+![The 2.4.0 live preview: the picture runs on a 35 mm film strip during the conversion](docs/preview.gif)
+
+The preview window that opens with **CONVERT** has been redesigned as a 35 mm film strip:
+
+- sprocket holes, edge printing and frame numbers along the film margins
+- the current frame sits in the gate with the before / after slider, or ORIGINAL and FINAL as
+  two frames side by side (Space key or the button in the bottom bar)
+- the previous frames slide away to the left with a short animation, the next frames wait
+  unexposed on the right
+- a header with a REC light (DONE / STOPPED at the end), the timecode of the encoded position,
+  a progress line, the number of frames previewed and the remaining time
 
 ## Highlights
 
 - **Every format of your FFmpeg build**: tuned presets first (MP4, MKV, MOV, WebM, ProRes 422 /
   4444 XQ, DNxHR, MP3, FLAC, Opus, AVIF, WebP...), then every muxer, image type and encoder read
   live from `ffmpeg.exe`. Formats with strict rules (DV, GXF, MXF D-10, AMV...) are fixed automatically.
-- **Batch conversion** of files and whole folders, with a live before / after preview, progress
+- **Batch conversion** of files and whole folders, with a live before / after preview on a
+  cinema film strip, progress
   and remaining time for every file, and an activity log. Originals are never overwritten.
 - **Optimized compression**: each video is analysed and a smaller encode is suggested, with an
   estimate of the resulting size and time.
@@ -38,18 +53,33 @@ and a DVD / Blu-ray ripper. Version 2.3.0.
 | --- | --- |
 | ![Main window with four files and the compression advisor](docs/screenshot-main.png) | ![Settings: Scale, SeedVR2, AI Upscale, Denoiser](docs/screenshot-settings.png) |
 | Main window: files, compression advisor, output format | Settings: Scale, SeedVR2, AI Upscale, Denoiser |
-| ![Live before / after preview during a conversion](docs/screenshot-preview.png) | ![DVD / Blu-ray ripper](docs/screenshot-rip.png) |
-| Live before / after preview during a conversion | DVD / Blu-ray ripper |
+| ![Film-strip live preview during a conversion](docs/screenshot-preview.png) | ![DVD / Blu-ray ripper](docs/screenshot-rip.png) |
+| Film-strip live preview (before / after slider) | DVD / Blu-ray ripper |
 
 ## Download
 
-Download `FFmpegForge-2.3.0-Portable.rar` from the [Releases](../../releases) page, extract it
+Download `FFmpegForge-2.4.0-Portable.rar` from the [Releases](../../releases) page, extract it
 anywhere (internal drive, external drive, USB stick) and start `FFmpegForge.exe`.
 Nothing is installed and nothing is written to the registry: settings stay in the `Settings`
 folder next to the program.
 
-A Linux portable edition (`FFmpegForge-2.3.0-Linux-x86_64.tar.xz`, runs with Mono) and a
-command-line edition (FFmpeg Forge CLI) are also available.
+A Linux portable edition (`FFmpegForge-2.4.0-Linux-x86_64.rar`) and a command-line edition
+(FFmpeg Forge CLI) are also available.
+
+### Linux edition
+
+The Linux archive contains the same `FFmpegForge.exe`, run with Mono, a static FFmpeg 9.0.2
+GPL build (BtbN), `dovi_tool` and a launcher:
+
+```text
+unrar x FFmpegForge-2.4.0-Linux-x86_64.rar
+cd FFmpegForge
+./FFmpegForge.sh --install-deps   # first time only: installs Mono (apt, dnf, pacman, zypper)
+./FFmpegForge.sh
+./install-menu-entry.sh           # optional: adds FFmpeg Forge to the applications menu
+```
+
+The Windows-only parts (NVIDIA RTX helper, Python AI installers) are hidden on Linux.
 
 ### Requirements
 
@@ -62,12 +92,12 @@ command-line edition (FFmpeg Forge CLI) are also available.
 
 | File / folder | Content |
 | --- | --- |
-| `FFmpegForge.exe` | FFmpeg Forge 2.3.0 |
+| `FFmpegForge.exe` | FFmpeg Forge 2.4.0 |
 | `bin\` | FFmpeg 9.0.2 full build (gyan.dev): ffmpeg, ffprobe, ffplay |
 | `FFmpeg\` | FFmpeg licence, build information, documentation, presets |
 | `ForgeRTX.exe` | NVIDIA RTX Video helper (RTX AI section) |
 | `dovi_tool.exe` | Dolby Vision tool (MIT licence) for SDR to Dolby Vision 8.1 |
-| `Source\` | source code and `build.bat` |
+| `Source\` | source code, `build.bat` (Windows) and `build.sh` (Mono) |
 | `portable.txt` | portable mode (delete it to keep the settings in `%APPDATA%\FFmpegForge`) |
 
 ## Getting started
@@ -170,7 +200,10 @@ Windows Forms and has no external dependencies.
 
 ```text
 Source\build.bat      rebuilds FFmpegForge.exe with the C# compiler shipped with Windows
+Source/build.sh       rebuilds it on Linux with Mono (mono-mcs)
 ```
+
+The same executable runs on Windows (.NET Framework 4) and on Linux (Mono).
 
 `ForgeRTX.exe` is built from `Source\rtxhelper\ForgeRTX.c` with MinGW-w64.
 
@@ -178,6 +211,7 @@ Source\build.bat      rebuilds FFmpegForge.exe with the C# compiler shipped with
 
 | Version | Main changes |
 | --- | --- |
+| 2.4.0 | Cinema film-strip live preview with timecode, progress, remaining time and frame history |
 | 2.3.0 | DVD / Blu-ray ripper with titles, tracks, languages, chapters and format choices |
 | 2.2.0 | RazorNext (RelayVSR) AI upscale for video and pictures, model choice in AI Upscale |
 | 2.1.6 | New design, SDR to HDR10 / Dolby Vision 8.1, audio tracks without re-encoding the picture |
