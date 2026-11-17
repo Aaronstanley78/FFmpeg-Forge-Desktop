@@ -35,6 +35,8 @@ The preview window that opens with **CONVERT** has been redesigned as a 35 mm fi
   Integer, Lanczos, Bicubic, Spline... plus the OptiScaler output stage (supersampling + RCAS).
 - **AI upscale**: RazorNext (RelayVSR, temporal video super-resolution, native x4), VisionNext
   (VOSR 2.0), SeedVR2, NVIDIA RTX Video Super Resolution / TrueHDR, your own Python / ONNX models.
+- **DLSS 5 Neural Rendering (Windows)**: refine SDR video during conversion with manual
+  NR Intensity from 0.00 to 3.00.
 - **Denoiser**: AI denoiser (SCUNet, HAT, DAT, SPAN) with temporal stabilisation, or the Neat
   Video-style 3D FFT denoiser with automatic noise profile.
 - **Deinterlacing**: QTGMC (VapourSynth) or FFmpeg bwdif, double or same frame rate.
@@ -145,10 +147,32 @@ Open-source algorithms only: see `SHADER_LICENSES.txt`.
 | AI denoiser | SCUNet, HAT, DAT, SPAN with temporal stabilisation | "Install AI runtime" |
 | Python / ONNX | your own models (.onnx, .pth, .safetensors, .py) | "Install AI runtime" |
 | NVIDIA RTX | RTX Video Super Resolution, RTX TrueHDR, DLSS (FFmpeg NGX build) | NVIDIA driver, ForgeRTX.exe |
+| DLSS 5 Neural Rendering | Video refinement at the source resolution before export, with adjustable NR Intensity | Windows, a compatible NVIDIA RTX runtime, and WanGP with Depth Anything V2 |
 
 The installers download Python, PyTorch and the official model weights into folders next to
 `FFmpegForge.exe`; the models are not redistributed. RazorNext and VisionNext can also run
 through an existing Visual Enhancer installation.
+
+#### DLSS 5 Neural Rendering (Windows)
+
+1. Add an 8-bit SDR video and select **VIDEO** as the output category.
+2. Under **NVIDIA RTX AI**, enable **DLSS 5 Neural Rendering (video)**.
+3. Set **NR Intensity** from **0.00** to **3.00** in steps of **0.05**, then click **CONVERT**.
+   **0.00** disables the effect and **1.00** is the default. The native renderer accepts
+   values up to **2.00**. Above **2.00**, Forge runs the renderer at **2.00** and amplifies its
+   result before encoding. Choose a video encoder to apply the effect.
+
+The option uses the WanGP Python environment and its Depth Anything V2 model. Forge looks
+for WanGP in `F:\SeedVR2_Studio\engines\wangp` by default. If WanGP is installed elsewhere,
+set `FORGE_WANGP_ROOT` to the WanGP folder before starting Forge.
+
+The DLSS 5 files sit in a dedicated `dlss5\` folder next to `FFmpegForge.exe`.
+The `host\` subfolder contains `nr-depth-worker.exe`, `dxgi.dll`,
+`renodx-dlss5.addon64` and a compatible `nvngx_dlssnr.dll`. The
+`dlss\` subfolder contains `nvngx_dlss.dll`.
+
+**Show command** displays the FFmpeg export command. Start the conversion in Forge to run
+the DLSS 5 pass before that command.
 
 ### HDR
 
