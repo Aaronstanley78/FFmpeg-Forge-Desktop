@@ -2,24 +2,42 @@
 
 **Convert anything into everything.** FFmpeg Forge is a portable application for Windows and Linux that puts
 the full power of FFmpeg behind one window: every format and codec of your FFmpeg build, GPU
-upscalers, AI upscaling and denoising, SDR to HDR10 / Dolby Vision, immersive audio up to 22.2,
-a DVD / Blu-ray ripper and a cinema film-strip live preview. Version 2.4.0.
+upscalers, AI upscaling, denoising and deblurring, SDR to HDR10 / Dolby Vision, immersive audio
+up to 22.2, a DVD / Blu-ray ripper and a cinema film-strip live preview. Version 3.0.1.
 
-![FFmpeg Forge: adding files, settings, batch conversion, DVD ripping](docs/demo.gif)
+![FFmpeg Forge 3.0: workflow stages switched on and off, then a batch conversion](docs/demo.gif)
 
-## New in 2.4.0: cinema film-strip live preview
+## New in 3.0 and 3.0.1
 
-![The 2.4.0 live preview: the picture runs on a 35 mm film strip during the conversion](docs/preview.gif)
+### A new interface (3.0)
 
-The preview window that opens with **CONVERT** has been redesigned as a 35 mm film strip:
+- Graphite design with cyan / indigo accents, flat cards and compact controls.
+- A header that shows the conversion **workflow**: Decode, Denoise, Deblur, Upscale, HDR and
+  Encode light up as soon as the matching stage is switched on.
+- Workflow **stage cards**: Scale, SeedVR2, AI Upscale, Denoiser IA, Deblurring, Python / ONNX AI
+  and OptiScaler have an on / off switch in their header.
+- A new drop zone, new logo, new buttons and a new progress bar.
 
-- sprocket holes, edge printing and frame numbers along the film margins
-- the current frame sits in the gate with the before / after slider, or ORIGINAL and FINAL as
-  two frames side by side (Space key or the button in the bottom bar)
-- the previous frames slide away to the left with a short animation, the next frames wait
-  unexposed on the right
-- a header with a REC light (DONE / STOPPED at the end), the timecode of the encoded position,
-  a progress line, the number of frames previewed and the remaining time
+### OptiPulsar and FocusPulsar (3.0.1)
+
+| Section | Model | What it does | Engine |
+| --- | --- | --- | --- |
+| AI Upscale | OptiPulsar | fast convolutional upscaler (NERVE by Philip Hofmann, Apache-2.0), x1 / x2 / x4 / x8, native x2 and x4 | built in (no Visual Enhancer), or Visual Enhancer |
+| Deblurring (new section) | FocusPulsar | AI deblurring and focus restoration, strength 0 to 200 % | Visual Enhancer |
+
+- **OptiPulsar, built in**: click **Install OptiPulsar model...** once. FFmpeg Forge installs
+  Python 3.12, PyTorch CUDA and the official NERVE x2 / x4 weights (huggingface.co/Phips/NERVE)
+  into `OptiPulsar\` next to `FFmpegForge.exe` and runs its own implementation of the
+  architecture. Videos are streamed from the decoder to the final encoder (no picture files, one
+  single encode). GPU (CUDA) or CPU.
+- **FocusPulsar** runs through an existing **Visual Enhancer** installation (`VE_CLI.exe`, by
+  Merserk): choose its folder once with **Visual Enhancer folder...** and download the model in
+  Visual Enhancer (Models tab). FFmpeg Forge writes a Visual Enhancer preset for it; a preset
+  exported from the Visual Enhancer app can replace it (`VE-presets\focuspulsar.json`).
+- FFmpeg Forge does not contain or redistribute any Visual Enhancer file or model.
+- The Lucid, Lucid 2 and ClearMagnetar models of 3.0 have been removed in 3.0.1.
+
+![Stage cards: AI Upscale with OptiPulsar (built in) and Deblurring with FocusPulsar](docs/screenshot-stages.png)
 
 ## Highlights
 
@@ -34,11 +52,11 @@ The preview window that opens with **CONVERT** has been redesigned as a 35 mm fi
 - **Scale**: FSR 1 / 2 / 3, NIS, SGSR, Anime4K, EWA Lanczos (GPU, libplacebo / Vulkan), xBR, hqx,
   Integer, Lanczos, Bicubic, Spline... plus the OptiScaler output stage (supersampling + RCAS).
 - **AI upscale**: RazorNext (RelayVSR, temporal video super-resolution, native x4), VisionNext
-  (VOSR 2.0), SeedVR2, NVIDIA RTX Video Super Resolution / TrueHDR, your own Python / ONNX models.
-- **DLSS 5 Neural Rendering (Windows)**: refine SDR video during conversion with manual
-  NR Intensity from 0.00 to 3.00.
-- **Denoiser**: AI denoiser (SCUNet, HAT, DAT, SPAN) with temporal stabilisation, or the Neat
-  Video-style 3D FFT denoiser with automatic noise profile.
+  (VOSR 2.0), OptiPulsar (NERVE), SeedVR2, LTX 2.5 Upscale
+  (WanGP), NVIDIA RTX Video Super Resolution / TrueHDR, your own Python / ONNX models.
+- **Denoiser**: AI denoiser (SCUNet, HAT, DAT, SPAN) with temporal stabilisation, or
+  the Neat Video-style 3D FFT denoiser with automatic noise profile.
+- **Deblurring**: FocusPulsar AI focus restoration (through Visual Enhancer).
 - **Deinterlacing**: QTGMC (VapourSynth) or FFmpeg bwdif, double or same frame rate.
 - **HDR**: SDR to HDR10 or Dolby Vision 8.1, with dynamic metadata measured on every frame.
 - **Immersive audio**: layouts up to 7.1.4, 9.1.6 and 22.2, an immersive upmix (spatial music,
@@ -53,20 +71,21 @@ The preview window that opens with **CONVERT** has been redesigned as a 35 mm fi
 
 | | |
 | --- | --- |
-| ![Main window with four files and the compression advisor](docs/screenshot-main.png) | ![Settings: Scale, SeedVR2, AI Upscale, Denoiser](docs/screenshot-settings.png) |
-| Main window: files, compression advisor, output format | Settings: Scale, SeedVR2, AI Upscale, Denoiser |
-| ![Film-strip live preview during a conversion](docs/screenshot-preview.png) | ![DVD / Blu-ray ripper](docs/screenshot-rip.png) |
-| Film-strip live preview (before / after slider) | DVD / Blu-ray ripper |
+| ![Main window after a batch conversion](docs/screenshot-main.png) | ![Stage cards: AI Upscale and Deblurring](docs/screenshot-stages.png) |
+| Main window: workflow header, files, activity log, output format | Stage cards: AI Upscale (OptiPulsar), Deblurring (FocusPulsar) |
+| ![Film-strip live preview during a conversion](docs/screenshot-preview.png) | |
+| Film-strip live preview (before / after slider) | |
 
 ## Download
 
-Download `FFmpegForge-2.4.0-Portable.rar` from the [Releases](../../releases) page, extract it
+Download `FFmpegForge-3.0.1-Portable.rar` from the [Releases](../../releases) page, extract it
 anywhere (internal drive, external drive, USB stick) and start `FFmpegForge.exe`.
 Nothing is installed and nothing is written to the registry: settings stay in the `Settings`
 folder next to the program.
 
-A Linux portable edition (`FFmpegForge-2.4.0-Linux-x86_64.rar`) and a command-line edition
-(FFmpeg Forge CLI) are also available.
+A Linux portable edition (2.4.0, `FFmpegForge-2.4.0-Linux-x86_64.rar`; the 3.0 source code also
+builds and runs on Linux with Mono) and a command-line
+edition (FFmpeg Forge CLI) are also available.
 
 ### Linux edition
 
@@ -81,25 +100,28 @@ cd FFmpegForge
 ./install-menu-entry.sh           # optional: adds FFmpeg Forge to the applications menu
 ```
 
-The Windows-only parts (NVIDIA RTX helper, Python AI installers) are hidden on Linux.
+The Windows-only parts (NVIDIA RTX helper, Python AI installers, Visual Enhancer) are not
+available on Linux.
 
 ### Requirements
 
 - Windows 10 / 11 64-bit with .NET Framework 4.x (built into Windows)
 - GPU scaling (FSR, NIS, SGSR, Anime4K, OptiScaler): a Vulkan graphics driver
 - NVENC, RTX Video and the AI engines: an NVIDIA GPU (16 to 24 GB of VRAM recommended for
-  RazorNext, VisionNext and SeedVR2)
+  RazorNext, VisionNext and SeedVR2; 16 GB of VRAM and 32 GB of RAM or more for LTX 2.5 Upscale)
+- Deblurring (FocusPulsar): an installed Visual Enhancer with the model downloaded (DirectX 12 GPU)
 
 ### Contents of the archive
 
 | File / folder | Content |
 | --- | --- |
-| `FFmpegForge.exe` | FFmpeg Forge 2.4.0 |
+| `FFmpegForge.exe` | FFmpeg Forge 3.0.1 |
 | `bin\` | FFmpeg 9.0.2 full build (gyan.dev): ffmpeg, ffprobe, ffplay |
 | `FFmpeg\` | FFmpeg licence, build information, documentation, presets |
 | `ForgeRTX.exe` | NVIDIA RTX Video helper (RTX AI section) |
 | `dovi_tool.exe` | Dolby Vision tool (MIT licence) for SDR to Dolby Vision 8.1 |
 | `Source\` | source code, `build.bat` (Windows) and `build.sh` (Mono) |
+| `VE-presets\` | optional Visual Enhancer preset for FocusPulsar (focuspulsar.json) |
 | `portable.txt` | portable mode (delete it to keep the settings in `%APPDATA%\FFmpegForge`) |
 
 ## Getting started
@@ -144,35 +166,17 @@ Open-source algorithms only: see `SHADER_LICENSES.txt`.
 | RazorNext | RelayVSR: temporal real-world video super-resolution, x1 to x4, stable detail from frame to frame | built in, "Install RazorNext model" (about 15 GB) |
 | VisionNext | VOSR 2.0 one-step super-resolution, x1 to x8, tiles 256 / 512 | built in, "Install VisionNext model" (about 10 GB) |
 | SeedVR2 | restoration and upscaling with the SeedVR2 models | built in, "Install SeedVR2" (about 4 GB) |
+| LTX 2.5 Upscale | Lightricks LTX-2.5 22B through WanGP: Pixel Spatial Upscaler x2 or Detail Refiner x1 / x1.5 / x2 | "Install WanGP (LTX 2.5)" (several GB), models downloaded by WanGP on first use (tens of GB) |
 | AI denoiser | SCUNet, HAT, DAT, SPAN with temporal stabilisation | "Install AI runtime" |
 | Python / ONNX | your own models (.onnx, .pth, .safetensors, .py) | "Install AI runtime" |
 | NVIDIA RTX | RTX Video Super Resolution, RTX TrueHDR, DLSS (FFmpeg NGX build) | NVIDIA driver, ForgeRTX.exe |
-| DLSS 5 Neural Rendering | Video refinement at the source resolution before export, with adjustable NR Intensity | Windows, a compatible NVIDIA RTX runtime, and WanGP with Depth Anything V2 |
+| OptiPulsar | NERVE (Philip Hofmann, Apache-2.0), x1 / x2 / x4 / x8 | built in, "Install OptiPulsar model" (about 3 GB), or Visual Enhancer |
+| FocusPulsar | AI deblurring (Deblurring section) | your Visual Enhancer installation (VE_CLI.exe) |
 
 The installers download Python, PyTorch and the official model weights into folders next to
-`FFmpegForge.exe`; the models are not redistributed. RazorNext and VisionNext can also run
-through an existing Visual Enhancer installation.
-
-#### DLSS 5 Neural Rendering (Windows)
-
-1. Add an 8-bit SDR video and select **VIDEO** as the output category.
-2. Under **NVIDIA RTX AI**, enable **DLSS 5 Neural Rendering (video)**.
-3. Set **NR Intensity** from **0.00** to **3.00** in steps of **0.05**, then click **CONVERT**.
-   **0.00** disables the effect and **1.00** is the default. The native renderer accepts
-   values up to **2.00**. Above **2.00**, Forge runs the renderer at **2.00** and amplifies its
-   result before encoding. Choose a video encoder to apply the effect.
-
-The option uses the WanGP Python environment and its Depth Anything V2 model. Forge looks
-for WanGP in `F:\SeedVR2_Studio\engines\wangp` by default. If WanGP is installed elsewhere,
-set `FORGE_WANGP_ROOT` to the WanGP folder before starting Forge.
-
-The DLSS 5 files sit in a dedicated `dlss5\` folder next to `FFmpegForge.exe`.
-The `host\` subfolder contains `nr-depth-worker.exe`, `dxgi.dll`,
-`renodx-dlss5.addon64` and a compatible `nvngx_dlssnr.dll`. The
-`dlss\` subfolder contains `nvngx_dlss.dll`.
-
-**Show command** displays the FFmpeg export command. Start the conversion in Forge to run
-the DLSS 5 pass before that command.
+`FFmpegForge.exe`; the models are not redistributed. LTX 2.5 Upscale can also use an existing
+WanGP installation. RazorNext and VisionNext can also run through an existing Visual Enhancer
+installation, like OptiPulsar; FocusPulsar always does.
 
 ### HDR
 
@@ -235,6 +239,9 @@ The same executable runs on Windows (.NET Framework 4) and on Linux (Mono).
 
 | Version | Main changes |
 | --- | --- |
+| 3.0.1 | OptiPulsar (NERVE) with a built-in engine, no Visual Enhancer needed; Lucid, Lucid 2 and ClearMagnetar removed; Deblurring with FocusPulsar kept |
+| 3.0.0 | New graphite interface with workflow header and stage cards; Visual Enhancer models and the new Deblurring section |
+| 2.4.1 | LTX 2.5 Upscale (WanGP Video Postprocessing): Pixel Spatial Upscaler x2 and Detail Refiner x1 / x1.5 / x2, videos and pictures |
 | 2.4.0 | Cinema film-strip live preview with timecode, progress, remaining time and frame history |
 | 2.3.0 | DVD / Blu-ray ripper with titles, tracks, languages, chapters and format choices |
 | 2.2.0 | RazorNext (RelayVSR) AI upscale for video and pictures, model choice in AI Upscale |
@@ -244,5 +251,12 @@ The same executable runs on Windows (.NET Framework 4) and on Linux (Mono).
 
 FFmpeg Forge is released under the GNU General Public License v3.0 (`LICENSE-GPL-3.0.txt`).
 Embedded shaders and HRTF data are listed in `SHADER_LICENSES.txt`. FFmpeg (GPL build by
-gyan.dev), dovi_tool (MIT), RelayVSR, VOSR, SeedVR2 and SCUNet (Apache-2.0) keep their own
-licences. Lossless Scaling's proprietary LS1 scaler is not included.
+gyan.dev), dovi_tool (MIT), RelayVSR, VOSR, SeedVR2, SCUNet and NERVE (Apache-2.0), WanGP (WanGP
+Community License 2.0) and the LTX-2.5 models (LTX-2 Community License) keep their own licences.
+Lossless Scaling's proprietary LS1 scaler is not included.
+
+Visual Enhancer and its model names belong to Merserk. OptiPulsar is FFmpeg Forge's own
+implementation of NERVE (Philip Hofmann, Apache-2.0); its weights are downloaded from the
+official repository at installation and are not redistributed.
+FFmpeg Forge only calls an existing Visual Enhancer installation through `VE_CLI.exe`; it does
+not include or redistribute any part of Visual Enhancer and is not affiliated with Merserk.
