@@ -201,6 +201,9 @@ namespace FFmpegForge
             A("mka",  "MKA — Matroska Audio (Opus)", "opus");
             A("wv",   "WV — WavPack (lossless)", "wavpack");
             A("tta",  "TTA — True Audio (lossless)", "tta");
+            A("ape",  "APE — Monkey's Audio (lossless, Hi-Res)", "ape");
+            A("mlp",  "MLP — Meridian Lossless Packing (raw .mlp)", "mlp");
+            A("mka",  "MKA — MLP in Matroska (tags + cover)", "mlp");
             A("caf",  "CAF — Core Audio (ALAC)", "alac");
             A("au",   "AU — Sun / NeXT", "pcm16be");
             A("w64",  "W64 — Sony Wave64", "pcm24");
@@ -250,6 +253,7 @@ namespace FFmpegForge
             switch (k)
             {
                 case "amr": return "libopencore_amrnb";
+                case "mlp": return "mlp";
                 case "mp3": return "libmp3lame";
                 case "opus": return "libopus";
                 case "vorbis": return "libvorbis";

@@ -275,7 +275,7 @@ namespace FFmpegForge
         public string Right1 = "";
         public Color Right1Color = Theme.Muted;
         public int FilterCount, FormatCount;
-        public string Version = "3.0.1";
+        public string Version = "3.0.1.1";
         public readonly FlatBtn StatusPill;
         /// Workflow stages shown in the header (name, icon, on).
         public string[] Stages = { "Decode", "Denoise", "Deblur", "Upscale", "HDR", "Encode" };
@@ -422,7 +422,7 @@ namespace FFmpegForge
         public string Right1 = "";
         public Color Right1Color = Theme.Muted;
         public int FilterCount, FormatCount;
-        public string Version = "3.0.1";
+        public string Version = "3.0.1.1";
 
         public SideBar()
         {

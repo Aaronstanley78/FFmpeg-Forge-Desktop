@@ -1,0 +1,12 @@
+ForgeOptiX.exe and the NVIDIA OptiX denoiser
+============================================
+
+ForgeOptiX.exe is FFmpeg Forge's OptiX Denoiser helper (source: Source\optixhelper\ForgeOptiX.cpp,
+GNU GPL v3). It was compiled with the NVIDIA OptiX SDK headers (https://github.com/NVIDIA/optix-dev),
+which are licensed by NVIDIA Corporation under the "NVIDIA Software Developer Kits, Samples and Tools
+License Agreement (with distribution rights)".
+
+The OptiX denoiser itself is part of the NVIDIA graphics driver (nvoptix.dll) and is not included in
+FFmpeg Forge. By using the OptiX Denoiser you use NVIDIA software under NVIDIA's terms; it runs only on
+NVIDIA GPUs supported by NVIDIA. NVIDIA and OptiX are trademarks of NVIDIA Corporation. FFmpeg Forge is
+not affiliated with NVIDIA.

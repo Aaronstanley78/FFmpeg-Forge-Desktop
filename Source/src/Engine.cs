@@ -40,6 +40,7 @@ namespace FFmpegForge
         public DateTime Started;             // conversion start (remaining-time estimate)
         public bool IsDsdAudio { get { return AudioCodec != null && AudioCodec.StartsWith("dsd_"); } }
         public bool Probed;
+        public bool HasCover;                // 3.0.1.1: an attached picture (cover art)
     }
 
     public class ConvSettings
@@ -122,6 +123,8 @@ namespace FFmpegForge
         public bool CaiEnabled, CaiKeep, CaiFp32, CaiGpu = true;
         public string CaiModel;
         public int CaiTile;
+        public int ApeLevel = 3;      // 3.0.1.1: Monkey's Audio compression 1..5 (= -c1000 .. -c5000)
+        public bool OptixEnabled; public int OptixStrength = 80;     // 3.0.1: OptiX Denoiser (VIDEO SETTINGS), strength 0-100 %
         public bool DeblurEnabled; public int DeblurStrength = 100;   // 3.0: Deblurring (FocusPulsar, Visual Enhancer)
         public string DnModel = "scunet";      // Denoiser IA model: "scunet" (built-in) or a model file name (models\*.pth, run by spandrel)
         public int DnPreset, DnEngine, DnStrength = 100, DnSharpen = 20;
@@ -374,6 +377,13 @@ namespace FFmpegForge
                 post.Add("-map_metadata 0");
                 if (fmt.Dynamic && fmt.Muxer != null) post.Add("-f " + fmt.Muxer);
                 needAudioMap = true;
+                // 3.0.1.1: MLP in Matroska keeps the cover art (written as a Matroska attachment)
+                if (akeyA == "mlp" && fmt.Ext == "mka" && job.HasCover)
+                {
+                    string cov = MkaCover(job);
+                    if (cov != null)
+                        post.Add("-attach " + Q(cov) + " -metadata:s:t:0 mimetype=" + (cov.EndsWith(".png") ? "image/png" : "image/jpeg") + " -metadata:s:t:0 filename=" + (cov.EndsWith(".png") ? "cover.png" : "cover.jpg"));
+                }
             }
             // ============================ IMAGE OUTPUT ============================
             else
@@ -593,11 +603,30 @@ namespace FFmpegForge
             return af.Count > 0 ? string.Join(",", af.ToArray()) : null;
         }
 
+        /// 3.0.1.1: the source cover art extracted once to a temporary file, attached to Matroska audio (MLP in MKA).
+        static string MkaCover(Job job)
+        {
+            try
+            {
+                string probe = Runner.RunCapture(Runner.FFprobe, "-v error -select_streams v:0 -show_entries stream=codec_name -of default=nw=1:nk=1 " + Q(job.Path), 15000).Trim();
+                bool png = probe.StartsWith("png");
+                string dir = Path.Combine(Path.GetTempPath(), "FFmpegForge-covers");
+                Directory.CreateDirectory(dir);
+                string id = ((uint)(job.Path + "|" + job.Size).GetHashCode()).ToString("x8");
+                string f = Path.Combine(dir, id + (png ? ".png" : ".jpg"));
+                if (File.Exists(f) && new FileInfo(f).Length > 0) return f;
+                bool copy = png || probe.StartsWith("mjpeg");
+                Runner.RunCapture(Runner.FFmpeg, "-hide_banner -nostdin -y -loglevel error -i " + Q(job.Path) + " -map 0:v:0 -an -frames:v 1 " + (copy ? "-c:v copy" : "-c:v mjpeg -q:v 2") + " -f image2 " + Q(f), 30000);
+                return File.Exists(f) && new FileInfo(f).Length > 0 ? f : null;
+            }
+            catch { return null; }
+        }
+
         /// Lossless / PCM codecs that keep a hi-res rate when converting DSD (lossy codecs get 48 kHz).
         public static bool HiResPcm(string akey)
         {
             if (akey == null) return false;
-            return akey.StartsWith("pcm") || akey.StartsWith("codec:pcm") || akey == "flac" || akey == "alac" || akey == "wavpack" || akey == "tta" || akey.StartsWith("dsf") || akey.StartsWith("dff");
+            return akey.StartsWith("pcm") || akey.StartsWith("codec:pcm") || akey == "flac" || akey == "alac" || akey == "wavpack" || akey == "tta" || akey == "mlp" || akey == "ape" || akey.StartsWith("dsf") || akey.StartsWith("dff");
         }
 
         public static string AudioFormatArgs(ConvSettings s, bool reencode)
@@ -715,6 +744,7 @@ namespace FFmpegForge
                 case "amr": return "-c:a libopencore_amrnb -ar 8000 -ac 1 -b:a 12.2k";
                 case "wavpack": return "-c:a wavpack";
                 case "tta": return "-c:a tta";
+                case "mlp": return "-c:a mlp -strict -2";
                 case "copy": return "-c:a copy";
                 case "none": return "-an";
                 default: return "-c:a aac -b:a 192k";
@@ -745,7 +775,7 @@ namespace FFmpegForge
     /// the program folder (Settings\) and uses the FFmpeg shipped in bin\ first.
     public static class AppPaths
     {
-        public static readonly string AppDir = AppDomain.CurrentDomain.BaseDirectory;
+        public static string AppDir = AppDomain.CurrentDomain.BaseDirectory;      // CLI: can point at a FFmpeg Forge folder (--forge-dir)
         /// 2.3.0: the same FFmpegForge.exe runs on Windows (.NET Framework) and on Linux (Mono).
         public static bool IsWindows { get { return System.IO.Path.DirectorySeparatorChar == '\\'; } }
         public static string ExeName(string n) { return IsWindows ? n + ".exe" : n; }
@@ -819,7 +849,7 @@ namespace FFmpegForge
             return false;
         }
 
-        static string RunCapture(string exe, string args, int timeoutMs)
+        internal static string RunCapture(string exe, string args, int timeoutMs)
         {
             var psi = new ProcessStartInfo(exe, args)
             {
@@ -907,9 +937,10 @@ namespace FFmpegForge
                 string o = RunCapture(FFprobe, "-v error -show_entries format=duration,size,bit_rate:stream=codec_type,codec_name,profile,pix_fmt,color_transfer,field_order,start_time,bit_rate,width,height,r_frame_rate,avg_frame_rate,channels,channel_layout:stream_disposition=attached_pic -of default=nw=1 \"" + job.Path + "\"", 20000);
                 string codec = null, curCodec = null, curType = null, cfr = null, cafr = null; int cchan = 0; string clay = null; int w = 0, h = 0, cw = 0, ch = 0; bool attached = false;
                 string cprof = null, cpix = null, ctrc = null, cfo = null; long cbr = 0; bool inFormat = false; double cst = double.NaN;
-                job.AudioStreams = 0; job.SubtitleStreams = 0; job.AudioBitrate = 0;
+                job.AudioStreams = 0; job.SubtitleStreams = 0; job.AudioBitrate = 0; job.HasCover = false;
                 Action flush = () =>
                 {
+                    if (curType == "video" && attached) job.HasCover = true;
                     if (curType == "video" && !attached) { job.HasVideo = true; if (codec == null) { codec = curCodec; w = cw; h = ch; job.Width = cw; job.Height = ch; SetFps(job, cfr, cafr); job.VideoCodec = curCodec; job.VideoProfile = cprof; job.PixFmt = cpix; job.ColorTransfer = ctrc; job.FieldOrder = cfo; job.VideoBitrate = cbr; job.VideoStart = cst; } }
                     if (curType == "audio") { if (!job.HasAudio) { job.AudioChannels = cchan; job.AudioCodec = curCodec; job.AudioLayout = clay; job.AudioStart = cst; } job.HasAudio = true; job.AudioStreams++; job.AudioBitrate += cbr; if (codec == null && !job.HasVideo) codec = curCodec; }
                     if (curType == "subtitle") job.SubtitleStreams++;
@@ -1397,7 +1428,7 @@ namespace FFmpegForge
             {
                 case "mp3": case "mp2": case "wmav2": return 2;
                 case "amr": return 1;
-                case "ac3": case "eac3": case "dts": return 6;
+                case "ac3": case "eac3": case "dts": case "mlp": return 6;
                 case "aac": case "flac": case "alac": return 8;
                 case "opus": return 255;      // mapping family 255 above 8 channels
                 default: return 0;            // PCM, Vorbis, WavPack, TTA, other encoders: no check

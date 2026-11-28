@@ -26,7 +26,7 @@ namespace FFmpegForge
             bool up = !audio && ((chkVision != null && chkVision.Checked) || (chkSeed != null && chkSeed.Checked) || (chkScale != null && chkScale.Checked) ||
                                  (chkLtx != null && chkLtx.Checked) || (chkOpti != null && chkOpti.Checked) || (!img && chkVsr != null && chkVsr.Checked));
             bool hdr = !audio && ((!img && cbHdr != null && cbHdr.SelectedIndex > 0) || (img && cbHdrImg != null && cbHdrImg.SelectedIndex > 0) || (!img && chkHdr != null && chkHdr.Checked));
-            header.SetStages(new[] { true, !audio && chkDn.Checked, !audio && chkDeblur != null && chkDeblur.Checked, up, hdr, true });
+            header.SetStages(new[] { true, !audio && (chkDn.Checked || (!img && cbOptix != null && cbOptix.SelectedIndex == 1)), !audio && chkDeblur != null && chkDeblur.Checked, up, hdr, true });
         }
         TableLayoutPanel secFormat, secCai;
         // compression assistant (2.1)
@@ -88,6 +88,9 @@ namespace FFmpegForge
         readonly List<Control> ltxRows = new List<Control>();
         readonly Dictionary<TableLayoutPanel, int> ltxSlot = new Dictionary<TableLayoutPanel, int>();
         CheckBox chkDn;
+        // 3.0.1: OptiX Denoiser (VIDEO SETTINGS)
+        ComboBox cbApeLevel; Label lblApeLevel, lblApeInfo; Control apeBar;      // 3.0.1.1 Monkey's Audio
+        ComboBox cbOptix; TrackBar tbOptix; Label lblOptixVal, lblOptixStr, lblOptixInfo; Control optixStrHost;
         // 3.0: Deblurring (FocusPulsar, Visual Enhancer)
         TableLayoutPanel secDeblur; CheckBox chkDeblur; TrackBar tbDeblur; Label lblDeblurVal, lblDeblurInfo; readonly List<Control> deblurRows = new List<Control>();
         ComboBox cbDnModel; Label lblDnModel; Control dnModelBar; Control dnSupportBtn;
@@ -156,7 +159,7 @@ namespace FFmpegForge
             fMono = new Font("Consolas", 9f);
             tips = new ToolTip { AutoPopDelay = 15000 };
 
-            Text = "FFmpeg Forge 3.0.1 — Universal Video • Audio • Image converter" + (AppPaths.IsWindows ? "" : "  (Linux)") + (AppPaths.Portable ? "  (portable)" : "");
+            Text = "FFmpeg Forge 3.0.1.1 — Universal Video • Audio • Image converter" + (AppPaths.IsWindows ? "" : "  (Linux)") + (AppPaths.Portable ? "  (portable)" : "");
             AutoScaleMode = AutoScaleMode.None;
             BackColor = Theme.Bg;
             ForeColor = Theme.Text;
@@ -327,6 +330,22 @@ namespace FFmpegForge
             btnQtgmcInstall.Dock = DockStyle.Fill; btnQtgmcInstall.Margin = new Padding(0, Theme.S(2), 0, Theme.S(6));
             AddRow(secVideo, null, btnQtgmcInstall);
             btnQtgmcInstall.Click += (s2, e2) => InstallQtgmc();
+            // 3.0.1: OptiX Denoiser (NVIDIA OptiX AI denoiser, ForgeOptiX.exe)
+            cbOptix = Combo("Off", "On — NVIDIA OptiX AI (GPU)");
+            AddRow(secVideo, "OptiX Denoiser", cbOptix);
+            Panel optixHost;
+            tbOptix = SliderRow(0, 100, 80, out lblOptixVal, out optixHost);
+            lblOptixStr = AddRow(secVideo, "   Strength", optixHost); optixStrHost = optixHost;
+            lblOptixInfo = new Label { Text = "", ForeColor = Theme.Muted, Font = fSmall, AutoSize = true, MaximumSize = new Size(Theme.S(380), 0), Margin = new Padding(0, 0, 0, Theme.S(4)) };
+            AddRow(secVideo, null, lblOptixInfo);
+            tips.SetToolTip(cbOptix, "NVIDIA OptiX AI denoiser: the denoiser of 3D renderers (Blender, Arnold…), run on your NVIDIA GPU by ForgeOptiX.exe.\n" +
+                "The OptiX runtime is part of the NVIDIA driver: nothing to install. It removes noise and grain frame by frame,\n" +
+                "before the other effects (AI denoiser, deblurring, upscalers). Videos only.");
+            tips.SetToolTip(tbOptix, "100 % = fully denoised picture, lower values keep part of the original (OptiX blend factor).\n" +
+                "OptiX was trained on rendering noise: on camera footage 60-80 % usually looks the most natural.");
+            cbOptix.SelectedIndexChanged += (s2, e2) => UpdateOptixRows();
+            tbOptix.ValueChanged += (s2, e2) => UpdateOptixRows();
+            UpdateOptixRows();
             // SDR → HDR (2.1.6)
             cbHdr = Combo("Off", "HDR10 (PQ, BT.2020, 10-bit)", "Dolby Vision 8.1");
             AddRow(secVideo, "SDR → HDR", cbHdr);
@@ -602,6 +621,33 @@ namespace FFmpegForge
             chkNorm = Check("Normalize loudness (EBU R128)");
             lblACodec = AddRow(secAudio, "Audio codec", cbACodec);
             AddRow(secAudio, "Bitrate (kbps)", cbAKbps);
+            // 3.0.1.1: Monkey's Audio (.ape) — official encoder MAC.exe (FFmpeg has no APE encoder)
+            cbApeLevel = Combo(ApeEngine.LevelNames.Cast<object>().ToArray());
+            cbApeLevel.SelectedIndex = 2;
+            tips.SetToolTip(cbApeLevel, "Monkey's Audio compression level (always lossless): higher = smaller file, slower to encode and decode.\nExtra High is a good choice for archiving; Insane saves little more and is much slower to play.");
+            lblApeLevel = AddRow(secAudio, "APE compression", cbApeLevel);
+            var bMac = Btn("Monkey's Audio encoder…", 0); bMac.Dock = DockStyle.Fill; bMac.Height = Theme.S(30); bMac.Font = fSmall;
+            var bMacDl = Btn("Download Monkey's Audio", 0); bMacDl.Dock = DockStyle.Fill; bMacDl.Height = Theme.S(30); bMacDl.Font = fSmall;
+            bMac.Click += (s2, e2) =>
+            {
+                using (var d = new OpenFileDialog { Title = "Choose MAC.exe (Monkey's Audio command-line encoder)", Filter = "MAC.exe|MAC.exe;mac.exe|Programs (*.exe)|*.exe" })
+                {
+                    if (ApeEngine.ExePath != null) try { d.InitialDirectory = Path.GetDirectoryName(ApeEngine.ExePath); } catch { }
+                    if (d.ShowDialog(this) == DialogResult.OK) { ApeEngine.UserPath = d.FileName; settings["mac_path"] = d.FileName; UpdateApeRows(); }
+                }
+            };
+            bMacDl.Click += (s2, e2) =>
+            {
+                try { Process.Start(new ProcessStartInfo(ApeEngine.DownloadPage) { UseShellExecute = true }); } catch (Exception ex) { Log(ex.Message, Theme.Error); }
+                Log("Monkey's Audio: install it from " + ApeEngine.DownloadPage + " (free, BSD licence), then come back — FFmpeg Forge finds MAC.exe in Program Files automatically.", Theme.Accent1);
+            };
+            var macBar = new TableLayoutPanel { ColumnCount = 2, Dock = DockStyle.Fill, AutoSize = true, Margin = new Padding(0) };
+            macBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50)); macBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            macBar.Controls.Add(bMac, 0, 0); macBar.Controls.Add(bMacDl, 1, 0);
+            apeBar = macBar;
+            AddRow(secAudio, null, macBar);
+            lblApeInfo = new Label { Text = "", ForeColor = Theme.Muted, Font = fSmall, AutoSize = true, MaximumSize = new Size(Theme.S(400), 0), Margin = new Padding(0, Theme.S(2), 0, Theme.S(4)) };
+            AddRow(secAudio, null, lblApeInfo);
             AddRow(secAudio, "Sample rate", cbRate);
             AddRow(secAudio, "Channels", cbCh);
             cbUpmix = Combo("Auto — Spatial Music (audio) / Cinema (video)",
@@ -1300,12 +1346,14 @@ namespace FFmpegForge
             }
             if (f.Kind == MediaKind.Audio)
             {
-                bool lossless = f.ACodec == "flac" || f.ACodec == "alac" || f.ACodec.StartsWith("pcm") || f.ACodec.StartsWith("codec:pcm") || f.ACodec == "wavpack" || f.ACodec == "tta" || f.ACodec == "amr" || DsdEngine.IsDsd(f.ACodec);
+                bool lossless = f.ACodec == "flac" || f.ACodec == "alac" || f.ACodec.StartsWith("pcm") || f.ACodec.StartsWith("codec:pcm") || f.ACodec == "wavpack" || f.ACodec == "tta" || f.ACodec == "amr" || f.ACodec == "mlp" || ApeEngine.IsApe(f.ACodec) || DsdEngine.IsDsd(f.ACodec);
                 cbAKbps.Enabled = !lossless;
+                UpdateApeRows();
                 cbACodec.Enabled = true;
                 cbACodec.SelectedIndex = 0;
             }
             else cbAKbps.Enabled = true;
+            if (f.Kind != MediaKind.Audio) UpdateApeRows();
             if (f.Kind == MediaKind.Image)
             {
                 bool q = f.VCodec == "mjpeg" || f.VCodec == "webp" || f.VCodec == "avif" || f.VCodec == "jxl" || f.Dynamic;
@@ -1784,6 +1832,15 @@ namespace FFmpegForge
             string why;
             {
                 string ak = s.ACodec == "auto" ? s.Format.ACodec : s.ACodec;
+                if (ApeEngine.IsApe(ak))
+                {
+                    expected = 0;
+                    if (s.Format.Kind != MediaKind.Audio) { err = "Monkey's Audio (.ape) is an audio format: choose the AUDIO category."; args = null; return false; }
+                    var ap = ApeEngine.Build(job, s, outPath, out err);
+                    expected = ap != null ? ap.Expected : 0;
+                    args = ap != null ? ap.Text() : null;
+                    return ap != null;
+                }
                 if (DsdEngine.IsDsd(ak))
                 {
                     expected = 0;
@@ -2105,6 +2162,9 @@ namespace FFmpegForge
             s.DnEnabled = chkDn.Checked && s.Format.Kind != MediaKind.Audio;
             s.DnModel = DnModelKey();
             s.DeblurEnabled = chkDeblur.Checked && s.Format.Kind != MediaKind.Audio;
+            s.OptixEnabled = cbOptix.SelectedIndex == 1 && s.Format.Kind == MediaKind.Video;
+            s.OptixStrength = tbOptix.Value;
+            s.ApeLevel = cbApeLevel.SelectedIndex + 1;
             s.DeblurStrength = tbDeblur.Value;
             s.CaiEnabled = chkCai.Checked && cbCaiModel.SelectedItem != null && s.Format.Kind != MediaKind.Audio;
             s.CaiModel = cbCaiModel.SelectedItem as string;
@@ -2339,7 +2399,7 @@ namespace FFmpegForge
                 {
                     bool q = Qtgmc.Ready;
                     string ordTxt = Qtgmc.OrderText(job, s);
-                    bool plainPath = !q && !(s.Vision != null && s.Vision.Enabled) && !(s.Seed != null && s.Seed.Enabled) && !s.LtxOn && !s.RtxActive && !s.DnEnabled && !s.CaiEnabled && s.Rotate == 0 && string.IsNullOrWhiteSpace(s.FilterComplex);
+                    bool plainPath = !q && !(s.Vision != null && s.Vision.Enabled) && !(s.Seed != null && s.Seed.Enabled) && !s.LtxOn && !s.OptixEnabled && !s.RtxActive && !s.DnEnabled && !s.CaiEnabled && s.Rotate == 0 && string.IsNullOrWhiteSpace(s.FilterComplex);
                     if (plainPath)
                     {
                         // no other stage: bwdif goes straight into the export's filter chain (no intermediate file)
@@ -2362,7 +2422,7 @@ namespace FFmpegForge
                             try { Directory.CreateDirectory(diStage.TempDir); } catch { }
                             if (q) UI(() => Log("   Deinterlacing QTGMC (" + (s.Deint == 2 ? "same rate" : "double rate") + ", " + ordTxt + "): " + job.Width + "×" + job.Height + " — slow, best quality", Color.FromArgb(118, 185, 0)));
                             else UI(() => Log("   Deinterlacing: QTGMC is not installed — FFmpeg bwdif (" + (s.Deint == 2 ? "same rate" : "double rate") + ", " + ordTxt + "). Install QTGMC in Video settings for the best quality.", Theme.Accent1));
-                            bool more = s.DnEnabled || s.CaiEnabled || s.RtxActive || (s.Vision != null && s.Vision.Enabled) || (s.Seed != null && s.Seed.Enabled) || s.LtxOn;
+                            bool more = s.DnEnabled || s.OptixEnabled || s.CaiEnabled || s.RtxActive || (s.Vision != null && s.Vision.Enabled) || (s.Seed != null && s.Seed.Enabled) || s.LtxOn;
                             double dShare = more ? 0.25 : 0.6;
                             try
                             {
@@ -2395,6 +2455,55 @@ namespace FFmpegForge
                             }
                             else if (code == 0) { code = 3; lastErr = "Deinterlacing did not write its result."; }
                         }
+                    }
+                }
+                // 3.0.1: OptiX Denoiser (ForgeOptiX.exe) — first effect after deinterlacing
+                AiDenoise.Stage oxStage = null;
+                if (s.OptixEnabled && job.Kind == MediaKind.Video && job.HasVideo && job.Width > 0 && code == 0 && !cancelRequested)
+                {
+                    string oerr;
+                    oxStage = OptixDenoise.Build(rjob, rs, out oerr);
+                    if (oxStage == null) { code = 3; lastErr = "OptiX Denoiser: " + oerr; }
+                    else
+                    {
+                        try { Directory.CreateDirectory(oxStage.TempDir); } catch { }
+                        if (pv)
+                        {
+                            oxStage.Plan.DecArgs = PreviewFrames.ForDecoder(oxStage.Plan.DecArgs, rs, oxStage.Seconds);
+                            oxStage.Plan.EncArgs = PreviewFrames.ForEncoder(oxStage.Plan.EncArgs, rs, false, true, oxStage.Seconds);
+                        }
+                        UI(() => Log("   OptiX Denoiser (NVIDIA OptiX AI, strength " + s.OptixStrength + " %): " + rjob.Width + "×" + rjob.Height, Color.FromArgb(118, 185, 0)));
+                        double oStart = pBase, oShare = pScale * 0.5;
+                        try
+                        {
+                            code = Rtx.RunDriver(oxStage.Plan,
+                                p =>
+                                {
+                                    job.Progress = oStart + oShare * p;
+                                    long now = jsw.ElapsedMilliseconds;
+                                    if (now - lastUi < 120 && p < 1) return;
+                                    lastUi = now;
+                                    double ov = (index + job.Progress) / jobs.Count;
+                                    UI(() => { overall.Value = ov; RefreshRow(job); });
+                                },
+                                line => { if (pv && (line.Contains("deprecated pixel format") || line.Contains("Last message repeated"))) return; UI(() => Log("   " + line, line.StartsWith("ForgeOX") ? Color.FromArgb(118, 185, 0) : Color.FromArgb(200, 170, 110))); },
+                                () => cancelRequested, out lastErr);
+                        }
+                        catch (Exception ex) { code = -2; lastErr = ex.Message; }
+                        if (code == 0 && File.Exists(oxStage.Intermediate))
+                        {
+                            rjob = new Job { Path = oxStage.Intermediate };
+                            Runner.Probe(rjob);
+                            rs = rs.Clone();
+                            rs.OptixEnabled = false; rs.TrimStart = -1; rs.TrimEnd = -1;
+                            double e2; string err2; string exe2, args2; Rtx.DriverPlan plan2;
+                            BuildJobCommand(rjob, rs, outPath, out exe2, out args2, out e2, out err2, out plan2);
+                            exe = exe2; args = args2; expected = e2; plan = plan2; err = err2;
+                            pBase = oStart + oShare; pScale = 1 - pBase;
+                            pv = false;
+                            if (args == null) { code = 3; lastErr = err2; }
+                        }
+                        else if (code == 0) { code = 3; lastErr = "The OptiX Denoiser did not write its result."; }
                     }
                 }
                 AiDenoise.Stage aiStage = null;
@@ -2554,7 +2663,29 @@ namespace FFmpegForge
                 try
                 {
                     string dsdKey = rs.ACodec == "auto" ? rs.Format.ACodec : rs.ACodec;
-                    if (s.Format.Kind == MediaKind.Audio && DsdEngine.IsDsd(dsdKey))
+                    if (s.Format.Kind == MediaKind.Audio && ApeEngine.IsApe(dsdKey))
+                    {
+                        string aerr;
+                        var ap = ApeEngine.Build(rjob, rs, outPath, out aerr);
+                        if (ap == null) { code = 3; lastErr = aerr; }
+                        else
+                        {
+                            UI(() => Log("   Monkey's Audio: " + ap.Bits + "-bit · " + ApeEngine.LevelNames[ap.Level / 1000 - 1] + " · " + ap.MacExe, Color.FromArgb(118, 185, 0)));
+                            code = ApeEngine.Run(ap,
+                                p =>
+                                {
+                                    job.Progress = pBase + pScale * p;
+                                    long now = jsw.ElapsedMilliseconds;
+                                    if (now - lastUi < 120 && p < 1) return;
+                                    lastUi = now;
+                                    double ov = (index + job.Progress) / jobs.Count;
+                                    UI(() => { overall.Value = ov; RefreshRow(job); });
+                                },
+                                line => UI(() => Log("   " + line, Color.FromArgb(200, 170, 110))),
+                                () => cancelRequested, out lastErr);
+                        }
+                    }
+                    else if (s.Format.Kind == MediaKind.Audio && DsdEngine.IsDsd(dsdKey))
                     {
                         string derr;
                         var dp = DsdEngine.Build(rjob, rs, dsdKey, outPath, out derr);
@@ -2775,6 +2906,7 @@ namespace FFmpegForge
                 }
                 AiDenoise.Cleanup(aiStage);
                 AiDenoise.Cleanup(caiStage);
+                AiDenoise.Cleanup(oxStage);
                 foreach (var vst in veStages) VeFx.Cleanup(vst);
                 AiDenoise.Cleanup(diStage);
                 if (usePreview) { int c2 = code; UI(() => { if (previewWin != null && !previewWin.IsDisposed) previewWin.SetStatus(c2 == 0 ? "done ✓" : (c2 == -1 ? "cancelled" : "failed")); }); }
@@ -2821,6 +2953,10 @@ namespace FFmpegForge
                 return "Install the RazorNext model once in Visual Enhancer: Models → RazorNext → Download (or use the Built-in engine).";
             if (e.Contains("visionnext") && (e.Contains("model package is missing") || e.Contains("visionnext model is not installed")))
                 return "Install the VisionNext model once in Visual Enhancer: Models → VisionNext → Download.";
+            if (e.Contains("forgeox") || e.Contains("optix"))
+                return e.Contains("nvcuda") || e.Contains("no cuda device") ? "The OptiX Denoiser needs an NVIDIA GPU." :
+                       e.Contains("not available in this nvidia driver") ? "Update the NVIDIA driver: the OptiX Denoiser needs a recent one (OptiX 9.1)." :
+                       e.Contains("out of memory") || e.Contains("error 2 ") ? "The OptiX Denoiser ran out of GPU memory: lower the resolution first, or close other GPU programs." : null;
             if (e.Contains("forgeop") || e.Contains("forge_optipulsar"))
                 return e.Contains("out of memory") || e.Contains("outofmemory") ? "OptiPulsar ran out of GPU memory: use a smaller upscale factor or the CPU mode."
                      : e.Contains("no module named") || e.Contains("modulenotfounderror") || e.Contains("no such file") ? "The OptiPulsar installation is incomplete: click \"Install OptiPulsar model\" again." : null;
@@ -3379,6 +3515,41 @@ namespace FFmpegForge
             UpdateDeblurRows();
         }
 
+        void UpdateApeRows()
+        {
+            if (cbApeLevel == null) return;
+            var f = cbFormat != null ? cbFormat.SelectedItem as OutFormat : null;
+            bool ape = f != null && f.Kind == MediaKind.Audio && ApeEngine.IsApe(f.ACodec);
+            bool mlp = f != null && f.Kind == MediaKind.Audio && f.ACodec == "mlp";
+            cbApeLevel.Visible = ape; if (lblApeLevel != null) lblApeLevel.Visible = ape;
+            apeBar.Visible = ape;
+            lblApeInfo.Visible = ape || mlp;
+            if (ape)
+            {
+                bool ok = ApeEngine.ExePath != null;
+                lblApeInfo.Text = ApeEngine.Status() + "\nLossless, 16 / 24-bit Hi-Res kept (up to 192 kHz and beyond). APEv2 tags and the cover art are copied from the source.";
+                lblApeInfo.ForeColor = ok ? Theme.Success : Theme.Accent1;
+            }
+            else if (mlp)
+            {
+                lblApeInfo.Text = "MLP (Meridian Lossless Packing, the DVD-Audio codec) — FFmpeg's experimental encoder: 16 / 24-bit, 44.1 to 192 kHz, up to 5.1 channels." +
+                                  (f.Ext == "mlp" ? "\nRaw .mlp bitstream: no tags and no cover art (choose \"MKA — MLP in Matroska\" to keep them)." : "\nMatroska audio: the tags and the cover art of the source are kept.");
+                lblApeInfo.ForeColor = Theme.Muted;
+            }
+        }
+
+        void UpdateOptixRows()
+        {
+            if (cbOptix == null || lblOptixInfo == null) return;
+            bool on = cbOptix.SelectedIndex == 1;
+            if (optixStrHost != null) optixStrHost.Visible = on;
+            if (lblOptixStr != null) lblOptixStr.Visible = on;
+            lblOptixInfo.Visible = on;
+            bool ok = OptixDenoise.Available;
+            lblOptixInfo.Text = OptixDenoise.Status() + (on ? "\nStrength " + tbOptix.Value + " %  ·  runs first, before the Denoiser IA, Deblurring and the upscalers; the audio is kept." : "");
+            lblOptixInfo.ForeColor = ok ? Theme.Success : Theme.Accent1;
+        }
+
         void UpdateDeblurRows()
         {
             if (secDeblur == null) return;
@@ -3834,6 +4005,11 @@ namespace FFmpegForge
             loadingSettings = true;
             chkDn.Checked = gi("dn", 0) == 1;
             chkDeblur.Checked = gi("deblur", 0) == 1;
+            cbOptix.SelectedIndex = gi("optix", 0) == 1 ? 1 : 0;
+            tbOptix.Value = Math.Max(0, Math.Min(100, gi("optix_str", 80)));
+            cbApeLevel.SelectedIndex = Math.Max(0, Math.Min(4, gi("ape_level", 3) - 1));
+            { string mp; if (settings.TryGetValue("mac_path", out mp)) ApeEngine.UserPath = mp ?? ""; }
+            UpdateApeRows();
             tbDeblur.Value = Math.Max(0, Math.Min(200, gi("deblur_str", 100)));
             { string ad; if (settings.TryGetValue("ai_dn_dir", out ad)) AiDenoise.Dir = ad; }
             cbSeqExport.SelectedIndex = Math.Max(0, Math.Min(2, gi("vseq", 0)));
@@ -3926,6 +4102,10 @@ namespace FFmpegForge
                 settings["scale_444"] = chkScale444.Checked ? "1" : "0";
                 settings["dn"] = chkDn.Checked ? "1" : "0";
                 settings["deblur"] = chkDeblur.Checked ? "1" : "0";
+                settings["optix"] = cbOptix.SelectedIndex == 1 ? "1" : "0";
+                settings["optix_str"] = tbOptix.Value.ToString(CultureInfo.InvariantCulture);
+                settings["ape_level"] = (cbApeLevel.SelectedIndex + 1).ToString(CultureInfo.InvariantCulture);
+                settings["mac_path"] = ApeEngine.UserPath ?? "";
                 settings["deblur_str"] = tbDeblur.Value.ToString(CultureInfo.InvariantCulture);
                 settings["ai_dn_dir"] = AiDenoise.Dir ?? "";
                 settings["dn_model"] = DnModelKey();

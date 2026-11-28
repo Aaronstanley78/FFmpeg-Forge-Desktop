@@ -3,11 +3,33 @@
 **Convert anything into everything.** FFmpeg Forge is a portable application for Windows and Linux that puts
 the full power of FFmpeg behind one window: every format and codec of your FFmpeg build, GPU
 upscalers, AI upscaling, denoising and deblurring, SDR to HDR10 / Dolby Vision, immersive audio
-up to 22.2, a DVD / Blu-ray ripper and a cinema film-strip live preview. Version 3.0.1.
+up to 22.2, a DVD / Blu-ray ripper and a cinema film-strip live preview. Version 3.0.1.1.
 
 ![FFmpeg Forge 3.0: workflow stages switched on and off, then a batch conversion](docs/demo.gif)
 
-## New in 3.0 and 3.0.1
+## New in 3.0, 3.0.1 and 3.0.1.1
+
+### Monkey's Audio and MLP output (3.0.1.1)
+
+Three new formats in the **AUDIO** category:
+
+| Format | Codec | Tags and cover | Engine |
+| --- | --- | --- | --- |
+| `APE — Monkey's Audio (lossless, Hi-Res)` | Monkey's Audio, 16 / 24-bit, any sample rate | APEv2 tag with the source tags and the cover art (`Cover Art (Front)`) | FFmpeg decodes, then the official encoder `MAC.exe` |
+| `MLP — Meridian Lossless Packing (raw .mlp)` | MLP, the DVD-Audio codec | none (a raw bitstream cannot hold metadata) | FFmpeg `-c:a mlp -strict experimental` |
+| `MKA — MLP in Matroska (tags + cover)` | the same MLP stream in Matroska audio | source tags and the cover art as a Matroska attachment | FFmpeg |
+
+- FFmpeg can read `.ape` but has **no Monkey's Audio encoder** (there is no `-c:a apes`), so FFmpeg Forge uses
+  `MAC.exe` from the user's Monkey's Audio installation (free, BSD-3-Clause, monkeysaudio.com). It is found in
+  Program Files, in a `MonkeysAudio` folder next to `FFmpegForge.exe`, on the PATH, or chosen with
+  **Monkey's Audio encoder…**. **Download Monkey's Audio** opens the official download page. MAC.exe is not bundled.
+- **AUDIO SETTINGS > APE compression**: Fast (`-c1000`), Normal (`-c2000`), High (`-c3000`), Extra High (`-c4000`,
+  default) or Insane (`-c5000`). Always lossless.
+- MLP is FFmpeg's experimental encoder: 16 / 24-bit, 44.1 to 192 kHz, up to 5.1 channels. Other sample rates and
+  layouts are converted automatically. Tested bit-exact on a 24-bit / 96 kHz FLAC source.
+
+![Monkey's Audio settings](docs/screenshot-ape.png)
+
 
 ### A new interface (3.0)
 
@@ -17,6 +39,20 @@ up to 22.2, a DVD / Blu-ray ripper and a cinema film-strip live preview. Version
 - Workflow **stage cards**: Scale, SeedVR2, AI Upscale, Denoiser IA, Deblurring, Python / ONNX AI
   and OptiScaler have an on / off switch in their header.
 - A new drop zone, new logo, new buttons and a new progress bar.
+
+### OptiX Denoiser (3.0.1)
+
+**VIDEO SETTINGS > OptiX Denoiser** runs NVIDIA's OptiX AI denoiser (the denoiser of 3D renderers such as
+Blender) on your NVIDIA GPU, through the small helper `ForgeOptiX.exe`. The OptiX runtime is part of the
+NVIDIA driver: nothing to install.
+
+- Strength 0 to 100 % (OptiX blend factor). 100 % gives the fully denoised picture; 60 to 80 % usually looks
+  the most natural on camera footage, because OptiX was trained on rendering noise.
+- It runs first, before the Denoiser IA, Deblurring and the upscalers, and the audio is kept. Videos only.
+- `ForgeOptiX.exe` is built from `Source/optixhelper/ForgeOptiX.cpp` with the NVIDIA OptiX SDK headers
+  (not included, see `LICENSE-OptiX.txt`).
+
+![OptiX Denoiser in the video settings](docs/screenshot-optix.png)
 
 ### OptiPulsar and FocusPulsar (3.0.1)
 
@@ -54,6 +90,7 @@ up to 22.2, a DVD / Blu-ray ripper and a cinema film-strip live preview. Version
 - **AI upscale**: RazorNext (RelayVSR, temporal video super-resolution, native x4), VisionNext
   (VOSR 2.0), OptiPulsar (NERVE), SeedVR2, LTX 2.5 Upscale
   (WanGP), NVIDIA RTX Video Super Resolution / TrueHDR, your own Python / ONNX models.
+- **OptiX Denoiser**: NVIDIA OptiX AI denoiser on the GPU (runtime in the NVIDIA driver).
 - **Denoiser**: AI denoiser (SCUNet, HAT, DAT, SPAN) with temporal stabilisation, or
   the Neat Video-style 3D FFT denoiser with automatic noise profile.
 - **Deblurring**: FocusPulsar AI focus restoration (through Visual Enhancer).
@@ -119,6 +156,7 @@ available on Linux.
 | `bin\` | FFmpeg 9.0.2 full build (gyan.dev): ffmpeg, ffprobe, ffplay |
 | `FFmpeg\` | FFmpeg licence, build information, documentation, presets |
 | `ForgeRTX.exe` | NVIDIA RTX Video helper (RTX AI section) |
+| `ForgeOptiX.exe` | NVIDIA OptiX Denoiser helper (VIDEO SETTINGS > OptiX Denoiser) |
 | `dovi_tool.exe` | Dolby Vision tool (MIT licence) for SDR to Dolby Vision 8.1 |
 | `Source\` | source code, `build.bat` (Windows) and `build.sh` (Mono) |
 | `VE-presets\` | optional Visual Enhancer preset for FocusPulsar (focuspulsar.json) |
@@ -233,13 +271,14 @@ Source/build.sh       rebuilds it on Linux with Mono (mono-mcs)
 
 The same executable runs on Windows (.NET Framework 4) and on Linux (Mono).
 
-`ForgeRTX.exe` is built from `Source\rtxhelper\ForgeRTX.c` with MinGW-w64.
+`ForgeRTX.exe` is built from `Source\rtxhelper\ForgeRTX.c` with MinGW-w64, and `ForgeOptiX.exe` from
+`Source\optixhelper\ForgeOptiX.cpp` with MinGW-w64 and the NVIDIA OptiX SDK headers (see `Source\optixhelper\README.txt`).
 
 ## Version history
 
 | Version | Main changes |
 | --- | --- |
-| 3.0.1 | OptiPulsar (NERVE) with a built-in engine, no Visual Enhancer needed; Lucid, Lucid 2 and ClearMagnetar removed; Deblurring with FocusPulsar kept |
+| 3.0.1 | OptiX Denoiser in the video settings; OptiPulsar (NERVE) with a built-in engine, no Visual Enhancer needed; Lucid, Lucid 2 and ClearMagnetar removed; Deblurring with FocusPulsar kept |
 | 3.0.0 | New graphite interface with workflow header and stage cards; Visual Enhancer models and the new Deblurring section |
 | 2.4.1 | LTX 2.5 Upscale (WanGP Video Postprocessing): Pixel Spatial Upscaler x2 and Detail Refiner x1 / x1.5 / x2, videos and pictures |
 | 2.4.0 | Cinema film-strip live preview with timecode, progress, remaining time and frame history |
